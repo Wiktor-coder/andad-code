@@ -20,11 +20,16 @@ import ru.netology.nmedia.adapter.OnInteractionListener
 import ru.netology.nmedia.adapter.PostsAdapter
 import ru.netology.nmedia.databinding.FragmentFeedBinding
 import ru.netology.nmedia.dto.Post
+import ru.netology.nmedia.util.NetworkMonitor
 import ru.netology.nmedia.viewmodel.PostViewModel
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class FeedFragment : Fragment() {
     private val viewModel: PostViewModel by activityViewModels()
+
+    @Inject
+    lateinit var networkMonitor: NetworkMonitor
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -60,6 +65,9 @@ class FeedFragment : Fragment() {
         })
         binding.list.adapter = adapter
 
+        // Наблюдаем за состоянием сети
+        setupNetworkObserver(binding)
+
         // Устаревший вариант
         /*
         lifecycleScope.launchWhenCreated {
@@ -94,6 +102,11 @@ class FeedFragment : Fragment() {
                         state.refresh is LoadState.Loading ||
                                 state.prepend is LoadState.Loading ||
                                 state.append is LoadState.Loading
+
+                    binding.emptyText.visibility = if (
+                        state.refresh is LoadState.NotLoading &&
+                        adapter.itemCount == 0
+                    ) View.VISIBLE else View.GONE
                 }
             }
         }
@@ -105,5 +118,29 @@ class FeedFragment : Fragment() {
         }
 
         return binding.root
+    }
+
+    private fun setupNetworkObserver(binding: FragmentFeedBinding) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                networkMonitor.isOnline.collectLatest { isOnline ->
+                    binding.networkStatus.apply {
+                        text = if (isOnline) {
+                            "🟢 Онлайн"
+                        } else {
+                            "🔴 Офлайн (данные из кэша)"
+                        }
+                        visibility = View.VISIBLE
+
+                        // Автоматически скрываем через 3 секунды для онлайна
+                        if (isOnline) {
+                            postDelayed({
+                                visibility = View.GONE
+                            }, 3000)
+                        }
+                    }
+                }
+            }
+        }
     }
 }

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import ru.netology.nmedia.auth.AppAuth
+import ru.netology.nmedia.repository.PostRepository
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -13,7 +14,8 @@ class NMediaApplication : Application() {
     private val appScope = CoroutineScope(Dispatchers.Default)
 
     @Inject
-    lateinit var auth: AppAuth
+    lateinit var repository: PostRepository
+//    lateinit var auth: AppAuth
 
     override fun onCreate() {
         super.onCreate()
@@ -22,7 +24,8 @@ class NMediaApplication : Application() {
 
     private fun setupAuth() {
         appScope.launch {
-            auth.sendPushToken()
+            repository.sync()
+//            auth.sendPushToken()
         }
     }
 }

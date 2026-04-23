@@ -38,18 +38,19 @@ class PostViewModel @Inject constructor(
     private val repository: PostRepository,
     auth: AppAuth,
 ) : ViewModel() {
-    private val cached = repository
-        .data
-        .cachedIn(viewModelScope)
+//    private val cached = repository
+//        .data
+//        .cachedIn(viewModelScope)
 
     val data: Flow<PagingData<Post>> = auth.authStateFlow
         .flatMapLatest { (myId, _) ->
-            cached.map { pagingData ->
+            repository.data.map { pagingData ->
                 pagingData.map { post ->
                     post.copy(ownedByMe = post.authorId == myId)
                 }
             }
         }
+        .cachedIn(viewModelScope) // Кэшируем после маппинга
 
     private val _dataState = MutableLiveData<FeedModelState>()
     val dataState: LiveData<FeedModelState>
@@ -123,10 +124,22 @@ class PostViewModel @Inject constructor(
     }
 
     fun likeById(id: Long) {
-        TODO()
+        viewModelScope.launch {
+            try {
+                repository.likeById(id)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     fun removeById(id: Long) {
-        TODO()
+        viewModelScope.launch {
+            try {
+                repository.removeById(id)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 }

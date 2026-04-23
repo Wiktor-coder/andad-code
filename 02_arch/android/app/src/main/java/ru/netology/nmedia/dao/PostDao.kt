@@ -15,6 +15,15 @@ interface PostDao {
     @Query("SELECT COUNT(*) FROM PostEntity")
     suspend fun count(): Int
 
+    @Query("SELECT * FROM PostEntity ORDER BY id DESC LIMIT :limit OFFSET :offset")
+    suspend fun getPosts(limit: Int, offset: Int): List<PostEntity>
+
+    @Query("SELECT * FROM PostEntity WHERE id = :id")
+    suspend fun getById(id: Long): PostEntity?
+
+    @Query("SELECT MAX(id) FROM PostEntity")
+    suspend fun getMaxId(): Long?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(post: PostEntity)
 
