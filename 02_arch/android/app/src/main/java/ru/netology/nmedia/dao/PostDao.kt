@@ -23,4 +23,8 @@ interface PostDao {
 
     @Query("DELETE FROM PostEntity WHERE id = :id")
     suspend fun removeById(id: Long)
+
+    //Добавляем метод очистки
+    @Query("DELETE FROM PostEntity")
+    suspend fun clearAll()
 }

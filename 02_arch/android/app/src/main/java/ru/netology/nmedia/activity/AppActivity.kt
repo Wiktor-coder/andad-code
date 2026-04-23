@@ -20,6 +20,10 @@ import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.firebase.messaging.FirebaseMessaging
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import ru.netology.nmedia.R
 import ru.netology.nmedia.auth.AppAuth
 import ru.netology.nmedia.repository.PostRepository
@@ -30,6 +34,8 @@ import javax.inject.Inject
 
 @AndroidEntryPoint
 class AppActivity : AppCompatActivity(R.layout.activity_app) {
+    private val viewModelScope = CoroutineScope(Dispatchers.Main)
+
     @Inject
     lateinit var repository: PostRepository
 
@@ -101,27 +107,37 @@ class AppActivity : AppCompatActivity(R.layout.activity_app) {
             override fun onMenuItemSelected(menuItem: MenuItem): Boolean =
                 when (menuItem.itemId) {
                     R.id.signin -> {
-                        // TODO: just hardcode it, implementation must be in homework
-                        auth.setAuth(5, "x-token")
+                        viewModelScope.launch {
+                            auth.setAuth(5, "x-token")
+                            repository.invalidateCache()
+                        }
                         true
                     }
 
                     R.id.signup -> {
-                        // TODO: just hardcode it, implementation must be in homework
-                        auth.setAuth(5, "x-token")
+                        viewModelScope.launch {
+                            auth.setAuth(5, "x-token")
+                            repository.invalidateCache()
+                        }
                         true
                     }
 
                     R.id.signout -> {
-                        // TODO: just hardcode it, implementation must be in homework
-                        auth.removeAuth()
+                        viewModelScope.launch {
+                            auth.removeAuth()
+                            repository.invalidateCache()
+                        }
                         true
                     }
 
                     else -> false
                 }
-
         })
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        viewModelScope.cancel()
     }
 
     private fun requestNotificationsPermission() {
