@@ -35,7 +35,12 @@ class PostRepositoryImpl @Inject constructor(
 
     @OptIn(ExperimentalPagingApi::class)
     override val data: Flow<PagingData<Post>> = Pager(
-        config = PagingConfig(pageSize = 25),
+        config = PagingConfig(
+            pageSize = 25,
+            enablePlaceholders = false,
+            // PREPEND отключён — начальная загрузка только вниз
+            initialLoadSize = 25,
+            ),
         remoteMediator = PostRemoteMediator(apiService, appDb, postDao, postRemoteKeyDao),
         pagingSourceFactory = postDao::pagingSource,
     ).flow.map { pagingData ->
@@ -51,6 +56,20 @@ class PostRepositoryImpl @Inject constructor(
 
             val body = response.body() ?: throw ApiError(response.code(), response.message())
             postDao.insert(body.toEntity())
+        } catch (e: IOException) {
+            throw NetworkError
+        } catch (e: Exception) {
+            throw UnknownError
+        }
+    }
+
+    override suspend fun getNewer(id: Long): List<Post> {
+        try {
+            val response = apiService.getNewer(id)
+            if (!response.isSuccessful) {
+                throw ApiError(response.code(), response.message())
+            }
+            return response.body() ?: emptyList()
         } catch (e: IOException) {
             throw NetworkError
         } catch (e: Exception) {

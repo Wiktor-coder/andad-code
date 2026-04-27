@@ -16,6 +16,12 @@ interface PostDao {
     @Query("SELECT * FROM PostEntity ORDER BY id DESC")
     fun getAll(): Flow<List<PostEntity>>
 
+    @Query("SELECT MIN(id) FROM PostEntity")
+    suspend fun getOldestId(): Long?
+
+    @Query("SELECT MAX(id) FROM PostEntity")
+    suspend fun getNewestId(): Long?
+
     @Query("SELECT COUNT(*) == 0 FROM PostEntity")
     suspend fun isEmpty(): Boolean
 
