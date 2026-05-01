@@ -52,10 +52,18 @@ class PostRemoteMediator(
                 }
 
                 LoadType.APPEND -> {
-                    val id = postRemoteKeyDao.min() ?: return MediatorResult.Success(
-                        endOfPaginationReached = false
-                    )
-                    service.getBefore(id, state.config.pageSize)
+                    // Используем min для получения самого старого ID
+                    val oldestId = postRemoteKeyDao.min()
+                    if (oldestId != null) {
+                        service.getBefore(oldestId, state.config.pageSize)
+                    } else {
+                        // Если нет ключа, пробуем загрузить страницу
+                        service.getLatest(state.config.pageSize)
+                    }
+//                    val id = postRemoteKeyDao.min() ?: return MediatorResult.Success(
+//                        endOfPaginationReached = false
+//                    )
+//                    service.getBefore(id, state.config.pageSize)
                 }
             }
 
@@ -75,7 +83,7 @@ class PostRemoteMediator(
                 when (loadType) {
                     LoadType.REFRESH -> {
                         // REFRESH: добавляем новые посты СВЕРХУ (не удаляем старые)
-                        val existingOldestId = postDao.getOldestId()
+//                        val existingOldestId = postDao.getOldestId()
                         val existingNewestId = postDao.getNewestId()
 
                         // Фильтруем только новые посты (которых ещё нет в БД)
