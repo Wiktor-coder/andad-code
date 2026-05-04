@@ -16,10 +16,10 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import ru.netology.nmedia.R
-import ru.netology.nmedia.adapter.OnInteractionListener
+import ru.netology.nmedia.adapter.FeedItemAdapter
 import ru.netology.nmedia.adapter.PostLoadingStateAdapter
-import ru.netology.nmedia.adapter.PostsAdapter
 import ru.netology.nmedia.auth.AppAuth
+import ru.netology.nmedia.adapter.OnInteractionListener
 import ru.netology.nmedia.databinding.FragmentFeedBinding
 import ru.netology.nmedia.dto.Post
 import ru.netology.nmedia.repository.PostRepository
@@ -42,7 +42,8 @@ class FeedFragment : Fragment() {
     ): View {
         val binding = FragmentFeedBinding.inflate(inflater, container, false)
 
-        val adapter = PostsAdapter(object : OnInteractionListener {
+        // Замените PostsAdapter на FeedItemAdapter
+        val adapter = FeedItemAdapter(object : OnInteractionListener {
             override fun onEdit(post: Post) {
                 viewModel.edit(post)
             }
@@ -83,7 +84,7 @@ class FeedFragment : Fragment() {
         // Актуальный вариант, подписка на данные
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.data.collectLatest(adapter::submitData)
+                viewModel.feedData.collectLatest(adapter::submitData) // Используем feedData вместо data
             }
         }
 

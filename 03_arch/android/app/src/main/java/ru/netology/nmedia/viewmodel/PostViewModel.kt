@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import ru.netology.nmedia.auth.AppAuth
+import ru.netology.nmedia.dto.FeedItem
 import ru.netology.nmedia.dto.MediaUpload
 import ru.netology.nmedia.dto.Post
 import ru.netology.nmedia.model.FeedModelState
@@ -38,18 +39,33 @@ class PostViewModel @Inject constructor(
     private val repository: PostRepository,
     auth: AppAuth,
 ) : ViewModel() {
-    private val cached = repository
-        .data
-        .cachedIn(viewModelScope)
+//    private val cached = repository
+//        .data
+//        .cachedIn(viewModelScope)
 
-    val data: Flow<PagingData<Post>> = auth.authStateFlow
-        .flatMapLatest { (myId, _) ->
-            cached.map { pagingData ->
-                pagingData.map { post ->
-                    post.copy(ownedByMe = post.authorId == myId)
+//    val data: Flow<PagingData<Post>> = auth.authStateFlow
+//        .flatMapLatest { (myId, _) ->
+//            cached.map { pagingData ->
+//                pagingData.map { post ->
+//                    post.copy(ownedByMe = post.authorId == myId)
+//                }
+//            }
+//        }
+
+    val feedData: Flow<PagingData<FeedItem>> = repository.feedData
+        .map { pagingData ->
+            pagingData.map { feedItem ->
+                when (feedItem) {
+                    is FeedItem.PostItem -> feedItem.copy(
+                        post = feedItem.post.copy(
+                            ownedByMe = feedItem.post.authorId == (auth.authStateFlow.value.id)
+                        )
+                    )
+                    else -> feedItem
                 }
             }
         }
+        .cachedIn(viewModelScope)
 
     private val _dataState = MutableLiveData<FeedModelState>()
     val dataState: LiveData<FeedModelState>

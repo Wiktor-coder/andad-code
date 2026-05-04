@@ -2,6 +2,7 @@ package ru.netology.nmedia.repository
 
 import androidx.paging.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import okhttp3.MultipartBody
@@ -11,6 +12,7 @@ import ru.netology.nmedia.dao.PostDao
 import ru.netology.nmedia.dao.PostRemoteKeyDao
 import ru.netology.nmedia.db.AppDb
 import ru.netology.nmedia.dto.Attachment
+import ru.netology.nmedia.dto.FeedItem
 import ru.netology.nmedia.dto.Media
 import ru.netology.nmedia.dto.MediaUpload
 import ru.netology.nmedia.dto.Post
@@ -21,6 +23,7 @@ import ru.netology.nmedia.error.ApiError
 import ru.netology.nmedia.error.AppError
 import ru.netology.nmedia.error.NetworkError
 import ru.netology.nmedia.error.UnknownError
+import ru.netology.nmedia.util.SeparatorUtils
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,19 +36,25 @@ class PostRepositoryImpl @Inject constructor(
     private val apiService: ApiService,
 ) : PostRepository {
 
+    // Отдельный Pager для синхронизации данных с сервером (фоном)
     @OptIn(ExperimentalPagingApi::class)
-    override val data: Flow<PagingData<Post>> = Pager(
+    private val syncPager = Pager(
         config = PagingConfig(
             pageSize = 25,
             enablePlaceholders = false,
-            // PREPEND отключён — начальная загрузка только вниз
-            initialLoadSize = 25,
-            ),
+        ),
         remoteMediator = PostRemoteMediator(apiService, appDb, postDao, postRemoteKeyDao),
         pagingSourceFactory = postDao::pagingSource,
-    ).flow.map { pagingData ->
-        pagingData.map(PostEntity::toDto)
-    }
+    )
+
+    // Поток для FeedItem с разделителями — используем только локальный pagingSource
+    override val feedData: Flow<PagingData<FeedItem>> = Pager(
+        config = PagingConfig(
+            pageSize = 25,
+            enablePlaceholders = false,
+        ),
+        pagingSourceFactory = { LocalFeedPagingSource(postDao) },
+    ).flow
 
     override suspend fun getAll() {
         try {
@@ -98,7 +107,6 @@ class PostRepositoryImpl @Inject constructor(
             val postWithAttachment = upload?.let {
                 upload(it)
             }?.let {
-                // TODO: add support for other types
                 post.copy(attachment = Attachment(it.id, AttachmentType.IMAGE))
             }
             val response = apiService.save(postWithAttachment ?: post)
