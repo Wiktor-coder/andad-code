@@ -81,97 +81,31 @@ class PostRemoteMediator(
 
             db.withTransaction {
                 when (loadType) {
-                    // getAfter вам вернёт только необходимые посты,
-                    // дополнительная фильтрация не требуется как это сделано ниже
                     LoadType.REFRESH -> {
-                        val wasDbEmpty = postRemoteKeyDao.isEmpty()
-
-                        if (wasDbEmpty) {
-                            // Сохраняем дополнительно ключ BEFORE (самый старый)
-                            postRemoteKeyDao.insert(
+                        postRemoteKeyDao.removeAll()
+                        postRemoteKeyDao.insert(
+                            listOf(
+                                PostRemoteKeyEntity(
+                                    type = PostRemoteKeyEntity.KeyType.AFTER,
+                                    id = body.first().id,
+                                ),
                                 PostRemoteKeyEntity(
                                     type = PostRemoteKeyEntity.KeyType.BEFORE,
-                                    id = body.last().id
-                                )
+                                    id = body.last().id,
+                                ),
                             )
-                        }
-                        // Ключ AFTER обновляем в любом случае
+                        )
+                        postDao.removeAll()
+                        postDao.insert(body.toEntity())
+                    }
+                    LoadType.PREPEND -> {
+                        // Не используется
                         postRemoteKeyDao.insert(
                             PostRemoteKeyEntity(
                                 type = PostRemoteKeyEntity.KeyType.AFTER,
-                                id = body.first().id
+                                id = body.first().id,
                             )
                         )
-                        // Сохраняем ВСЕ полученные посты
-                        postDao.insert(body.toEntity())
-                    }
-//                    LoadType.REFRESH -> {
-//                        val wasDbEmpty = postRemoteKeyDao.isEmpty()
-//
-//                        if (wasDbEmpty) {
-//                            // БД была пуста: сохраняем ВСЕ полученные посты
-//                            postDao.insert(body.toEntity())
-//
-//                            // Сохраняем оба ключа: AFTER (самый новый) и BEFORE (самый старый)
-//                            postRemoteKeyDao.insert(
-//                                listOf(
-//                                    PostRemoteKeyEntity(
-//                                        type = PostRemoteKeyEntity.KeyType.AFTER,
-//                                        id = body.first().id
-//                                    ),
-//                                    PostRemoteKeyEntity(
-//                                        type = PostRemoteKeyEntity.KeyType.BEFORE,
-//                                        id = body.last().id
-//                                    )
-//                                )
-//                            )
-//                        } else {
-//                            // БД НЕ пуста: добавляем только НОВЫЕ посты (сверху)
-//                            val existingNewestId = postDao.getNewestId()
-//
-//                            val newPosts = if (existingNewestId != null) {
-//                                body.filter { it.id > existingNewestId }
-//                            } else {
-//                                body
-//                            }
-//
-//                            if (newPosts.isNotEmpty()) {
-//                                postDao.insert(newPosts.toEntity())
-//
-//                                // Обновляем ONLY ключ AFTER (самый новый среди всех)
-//                                postRemoteKeyDao.insert(
-//                                    PostRemoteKeyEntity(
-//                                        type = PostRemoteKeyEntity.KeyType.AFTER,
-//                                        id = newPosts.first().id
-//                                    )
-//                                )
-//                            }
-//                        }
-//                    }
-//                    LoadType.REFRESH -> {
-//                        postRemoteKeyDao.removeAll()
-//                        postRemoteKeyDao.insert(
-//                            listOf(
-//                                PostRemoteKeyEntity(
-//                                    type = PostRemoteKeyEntity.KeyType.AFTER,
-//                                    id = body.first().id,
-//                                ),
-//                                PostRemoteKeyEntity(
-//                                    type = PostRemoteKeyEntity.KeyType.BEFORE,
-//                                    id = body.last().id,
-//                                ),
-//                            )
-//                        )
-//                        postDao.removeAll()
-//                    }
-                    LoadType.PREPEND -> {
-                        // Не используется
-//                        postRemoteKeyDao.insert(
-//                            PostRemoteKeyEntity(
-//                                type = PostRemoteKeyEntity.KeyType.AFTER,
-//                                id = body.first().id,
-//                            )
-//                        )
                     }
 
                     LoadType.APPEND -> {

@@ -80,7 +80,7 @@ class FeedFragment : Fragment() {
         }
          */
 
-        // Актуальный вариант
+        // Актуальный вариант, подписка на данные
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.data.collectLatest(adapter::submitData)
@@ -99,7 +99,7 @@ class FeedFragment : Fragment() {
         }
          */
 
-        // Актуальный вариант
+        // Актуальный вариант, подписка на состояние загрузки
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 adapter.loadStateFlow.collectLatest { state ->
