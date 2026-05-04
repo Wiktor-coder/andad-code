@@ -31,10 +31,10 @@ class PostRemoteMediator(
 //                LoadType.REFRESH -> service.getLatest(state.config.initialLoadSize)
                 LoadType.REFRESH -> {
                     // REFRESH: получаем ID самого старого поста сверху
-                    val oldestPostId = postDao.getOldestId()
-                    if (oldestPostId != null) {
+                    val maxId = postRemoteKeyDao.max() //postDao.getOldestId()
+                    if (maxId != null) {
                         // Загружаем посты новее, чем самый старый пост
-                        service.getNewer(oldestPostId)
+                        service.getAfter(maxId, state.config.pageSize)
                     } else {
                         // БД пуста — загружаем первую страницу
                         service.getLatest(state.config.initialLoadSize)
@@ -42,8 +42,13 @@ class PostRemoteMediator(
                 }
 
                 LoadType.PREPEND -> {
-                    // PREPEND отключён — возвращаем успех без загрузки
-                    return MediatorResult.Success(endOfPaginationReached = true)
+                    // PREPEND: загружаем более старые посты (вверх)
+                    val maxId = postRemoteKeyDao.max()
+                    if (maxId != null) {
+                        service.getAfter(maxId, state.config.pageSize)
+                    } else {
+                        return MediatorResult.Success(endOfPaginationReached = true)
+                    }
 
 //                    val id = postRemoteKeyDao.max() ?: return MediatorResult.Success(
 //                        endOfPaginationReached = false
@@ -52,18 +57,13 @@ class PostRemoteMediator(
                 }
 
                 LoadType.APPEND -> {
-                    // Используем min для получения самого старого ID
-                    val oldestId = postRemoteKeyDao.min()
-                    if (oldestId != null) {
-                        service.getBefore(oldestId, state.config.pageSize)
+                    // APPEND: загружаем более новые посты (вниз)
+                    val minId = postRemoteKeyDao.min()
+                    if (minId != null) {
+                        service.getBefore(minId, state.config.pageSize)
                     } else {
-                        // Если нет ключа, пробуем загрузить страницу
-                        service.getLatest(state.config.pageSize)
+                        return MediatorResult.Success(endOfPaginationReached = true)
                     }
-//                    val id = postRemoteKeyDao.min() ?: return MediatorResult.Success(
-//                        endOfPaginationReached = false
-//                    )
-//                    service.getBefore(id, state.config.pageSize)
                 }
             }
 
@@ -81,31 +81,73 @@ class PostRemoteMediator(
 
             db.withTransaction {
                 when (loadType) {
+                    // getAfter вам вернёт только необходимые посты,
+                    // дополнительная фильтрация не требуется как это сделано ниже
                     LoadType.REFRESH -> {
-                        // REFRESH: добавляем новые посты СВЕРХУ (не удаляем старые)
-//                        val existingOldestId = postDao.getOldestId()
-                        val existingNewestId = postDao.getNewestId()
+                        val wasDbEmpty = postRemoteKeyDao.isEmpty()
 
-                        // Фильтруем только новые посты (которых ещё нет в БД)
-                        val newPosts = body.filter { newPost ->
-                            existingNewestId == null || newPost.id > existingNewestId
-                        }
-
-                        if (newPosts.isNotEmpty()) {
-                            postDao.insert(newPosts.toEntity())
-
-                            // Обновляем ключи для APPEND
-                            val newOldestId = postDao.getOldestId()
-                            if (newOldestId != null) {
-                                postRemoteKeyDao.insert(
-                                    PostRemoteKeyEntity(
-                                        type = PostRemoteKeyEntity.KeyType.BEFORE,
-                                        id = newOldestId
-                                    )
+                        if (wasDbEmpty) {
+                            // Сохраняем дополнительно ключ BEFORE (самый старый)
+                            postRemoteKeyDao.insert(
+                                PostRemoteKeyEntity(
+                                    type = PostRemoteKeyEntity.KeyType.BEFORE,
+                                    id = body.last().id
                                 )
-                            }
+                            )
                         }
+                        // Ключ AFTER обновляем в любом случае
+                        postRemoteKeyDao.insert(
+                            PostRemoteKeyEntity(
+                                type = PostRemoteKeyEntity.KeyType.AFTER,
+                                id = body.first().id
+                            )
+                        )
+                        // Сохраняем ВСЕ полученные посты
+                        postDao.insert(body.toEntity())
                     }
+//                    LoadType.REFRESH -> {
+//                        val wasDbEmpty = postRemoteKeyDao.isEmpty()
+//
+//                        if (wasDbEmpty) {
+//                            // БД была пуста: сохраняем ВСЕ полученные посты
+//                            postDao.insert(body.toEntity())
+//
+//                            // Сохраняем оба ключа: AFTER (самый новый) и BEFORE (самый старый)
+//                            postRemoteKeyDao.insert(
+//                                listOf(
+//                                    PostRemoteKeyEntity(
+//                                        type = PostRemoteKeyEntity.KeyType.AFTER,
+//                                        id = body.first().id
+//                                    ),
+//                                    PostRemoteKeyEntity(
+//                                        type = PostRemoteKeyEntity.KeyType.BEFORE,
+//                                        id = body.last().id
+//                                    )
+//                                )
+//                            )
+//                        } else {
+//                            // БД НЕ пуста: добавляем только НОВЫЕ посты (сверху)
+//                            val existingNewestId = postDao.getNewestId()
+//
+//                            val newPosts = if (existingNewestId != null) {
+//                                body.filter { it.id > existingNewestId }
+//                            } else {
+//                                body
+//                            }
+//
+//                            if (newPosts.isNotEmpty()) {
+//                                postDao.insert(newPosts.toEntity())
+//
+//                                // Обновляем ONLY ключ AFTER (самый новый среди всех)
+//                                postRemoteKeyDao.insert(
+//                                    PostRemoteKeyEntity(
+//                                        type = PostRemoteKeyEntity.KeyType.AFTER,
+//                                        id = newPosts.first().id
+//                                    )
+//                                )
+//                            }
+//                        }
+//                    }
 //                    LoadType.REFRESH -> {
 //                        postRemoteKeyDao.removeAll()
 //                        postRemoteKeyDao.insert(

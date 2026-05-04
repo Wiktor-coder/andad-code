@@ -10,7 +10,7 @@ data class PostRemoteKeyEntity(
     val id: Long,
 ) {
     enum class KeyType {
-        BEFORE
+        AFTER, BEFORE
     }
 }
 
