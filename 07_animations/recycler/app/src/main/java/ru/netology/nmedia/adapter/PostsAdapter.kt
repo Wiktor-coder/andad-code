@@ -1,10 +1,13 @@
 package ru.netology.nmedia.adapter
 
+import android.animation.Animator
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.BounceInterpolator
 import android.widget.PopupMenu
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -26,6 +29,11 @@ class PostsAdapter(
         val binding = CardPostBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return PostViewHolder(binding, onInteractionListener)
     }
+
+//    override fun onViewRecycled(holder: PostViewHolder) {
+//        super.onViewRecycled(holder)
+//        holder.resetLikeAnimation()
+//    }
 
     override fun onBindViewHolder(
         holder: PostViewHolder,
@@ -52,9 +60,15 @@ class PostsAdapter(
 class PostViewHolder(
     private val binding: CardPostBinding,
     private val onInteractionListener: OnInteractionListener,
+    private var currentAnimator: Animator? = null,
 ) : RecyclerView.ViewHolder(binding.root) {
 
     fun bind(payload: Payload) {
+//        resetLikeAnimation()
+        Log.d(
+            "PostsAdapter",
+            "bind payload for post with liked=${payload.liked}, view=${binding.like}"
+        )
         payload.liked?.also { liked ->
             binding.like.setImageResource(
                 if (liked) R.drawable.ic_liked_24 else R.drawable.ic_like_24
@@ -62,8 +76,19 @@ class PostViewHolder(
             if (liked) {
                 ObjectAnimator.ofPropertyValuesHolder(
                     binding.like,
-                    PropertyValuesHolder.ofFloat(View.SCALE_X, 1.0F, 1.2F, 1.0F, 1.2F),
-                    PropertyValuesHolder.ofFloat(View.SCALE_Y, 1.0F, 1.2F, 1.0F, 1.2F)
+                    PropertyValuesHolder.ofFloat(
+                        View.SCALE_X,
+                        1.0F, 1.2F, 1.0F, 1.2F
+                    ),
+                    PropertyValuesHolder.ofFloat(
+                        View.SCALE_Y,
+                        1.0F, 1.2F, 1.0F, 1.2F
+                    ),
+                ).start()
+                ObjectAnimator.ofFloat(
+                    binding.like,
+                    View.ROTATION,
+                    0F, 410F
                 ).start()
             } else {
                 ObjectAnimator.ofFloat(
@@ -78,6 +103,11 @@ class PostViewHolder(
     }
 
     fun bind(post: Post) {
+        resetLikeAnimation()
+        Log.d(
+            "PostsAdapter",
+            "bind full for post ${post.id}, view=${binding.like}"
+        )
         binding.apply {
             author.text = post.author
             published.text = post.published
@@ -95,6 +125,7 @@ class PostViewHolder(
                                 onInteractionListener.onRemove(post)
                                 true
                             }
+
                             R.id.edit -> {
                                 onInteractionListener.onEdit(post)
                                 true
@@ -107,9 +138,30 @@ class PostViewHolder(
             }
 
             like.setOnClickListener {
+                val scaleX = PropertyValuesHolder.ofFloat(View.SCALE_X, 1F, 1.25F, 1F)
+                val scaleY = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1F, 1.25F, 1F)
+                val animator = ObjectAnimator.ofPropertyValuesHolder(binding.like, scaleX, scaleY).apply {
+                    duration = 500
+                    repeatCount = 100
+                    interpolator = BounceInterpolator()
+                }
+                currentAnimator = animator
+                animator.start()
                 onInteractionListener.onLike(post)
             }
+
+//            like.setOnClickListener {
+//                onInteractionListener.onLike(post)
+//            }
         }
+    }
+
+    fun resetLikeAnimation() {
+        Log.d("PostsAdapter", "reset animation for view ${binding.like}")
+        currentAnimator?.cancel()
+        currentAnimator = null
+        binding.like.scaleX = 1F
+        binding.like.scaleY = 1F
     }
 }
 
